@@ -179,6 +179,8 @@ func DecodeHook(hook mapstructure.DecodeHookFunc) DecoderConfigOption {
 //
 // Note: Vipers are not safe for concurrent Get() and Set() operations.
 type Viper struct {
+	// keyIsCaseSensitive key是区分大小写的, 默认不区分
+	keyIsCaseSensitive bool
 	// Delimiter that separates a list of keys
 	// used to access a nested value in one go
 	keyDelim string
@@ -1422,7 +1424,9 @@ func (v *Viper) RegisterAlias(alias string, key string) {
 }
 
 func (v *Viper) registerAlias(alias string, key string) {
-	alias = strings.ToLower(alias)
+	if !v.keyIsCaseSensitive {
+		alias = strings.ToLower(alias)
+	}
 	if alias != key && alias != v.realKey(key) {
 		_, exists := v.aliases[alias]
 
@@ -1467,13 +1471,21 @@ func (v *Viper) realKey(key string) string {
 func InConfig(key string) bool { return v.InConfig(key) }
 
 func (v *Viper) InConfig(key string) bool {
-	lcaseKey := strings.ToLower(key)
+	lcaseKey := key
+	if !v.keyIsCaseSensitive {
+		lcaseKey = strings.ToLower(key)
+	}
 
 	// if the requested key is an alias, then return the proper key
 	lcaseKey = v.realKey(lcaseKey)
 	path := strings.Split(lcaseKey, v.keyDelim)
 
 	return v.searchIndexableWithPathPrefixes(v.config, path) != nil
+}
+
+// SettingKeyCaseSensitive key不区分大小写设置
+func SettingKeyCaseSensitive(b bool) {
+	v.keyIsCaseSensitive = b
 }
 
 // SetDefault sets the default value for this key.
@@ -1483,7 +1495,11 @@ func SetDefault(key string, value interface{}) { v.SetDefault(key, value) }
 
 func (v *Viper) SetDefault(key string, value interface{}) {
 	// If alias passed in, then set the proper default
-	key = v.realKey(strings.ToLower(key))
+	if v.keyIsCaseSensitive {
+		key = v.realKey(key)
+	} else {
+		key = v.realKey(strings.ToLower(key))
+	}
 	value = toCaseInsensitiveValue(value)
 
 	path := strings.Split(key, v.keyDelim)
@@ -1502,7 +1518,11 @@ func Set(key string, value interface{}) { v.Set(key, value) }
 
 func (v *Viper) Set(key string, value interface{}) {
 	// If alias passed in, then set the proper override
-	key = v.realKey(strings.ToLower(key))
+	if v.keyIsCaseSensitive {
+		key = v.realKey(key)
+	} else {
+		key = v.realKey(strings.ToLower(key))
+	}
 	value = toCaseInsensitiveValue(value)
 
 	path := strings.Split(key, v.keyDelim)
